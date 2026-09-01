@@ -12,6 +12,20 @@ import re
 
 from pydantic import BaseModel, Field
 
+_LEADING_ARTICLE = re.compile(r"^(?:an?|the)\s+", re.IGNORECASE)
+
+
+def _shorten(gloss: str) -> str:
+    """Reduce one dictionary gloss to its head term.
+
+    Drops parenthetical qualifications, keeps only the first of several comma- or
+    semicolon-separated synonyms, and strips a leading English article -- "a key"
+    is one word of answer and one word of noise.
+    """
+    without_parens = re.sub(r"\([^)]*\)", " ", gloss)
+    head = re.split(r"[;,]", without_parens)[0]
+    return _LEADING_ARTICLE.sub("", " ".join(head.split()))
+
 
 class Example(BaseModel):
     """One example sentence and its translation."""
@@ -73,8 +87,21 @@ class WordEntry(BaseModel):
         Monday to Sunday...)' -- which is useless as an image-search query, so
         keep only the leading term.
         """
-        if not self.translations:
-            return self.word
-        without_parens = re.sub(r"\([^)]*\)", " ", self.translations[0])
-        head = re.split(r"[;,]", without_parens)[0]
-        return " ".join(head.split()) or self.word
+        return _shorten(self.translations[0]) or self.word if self.translations else self.word
+
+    def short_translations(self, limit: int = 2) -> list[str]:
+        """Card-sized translations: at most *limit* senses, each cut to its head term.
+
+        A flashcard answer has to be recallable in one glance. The full gloss --
+        'week (period of seven days counting from Monday to Sunday, or from Sunday
+        to Saturday)' -- is reference material, not something you can check yourself
+        against, so only the leading term of each distinct sense survives.
+        """
+        short: list[str] = []
+        for gloss in self.translations:
+            term = _shorten(gloss)
+            if term and term not in short:
+                short.append(term)
+            if len(short) >= limit:
+                break
+        return short

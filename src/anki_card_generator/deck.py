@@ -64,16 +64,20 @@ hr#answer { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
 """
 
 # Recognition: see the foreign word, recall what it means.
+#
+# The front deliberately shows the bare headword. Putting the article there --
+# "das Haus" -- hands over the gender before you have recalled it, which is the
+# harder half of learning a German noun; it belongs on the reveal.
 _RECOGNITION_FRONT = """
 <div class="word">{{Word}}</div>
 """
 
 _RECOGNITION_BACK = """
-{{FrontSide}}
-<hr id="answer">
+<div class="word">{{Gender}} {{Word}}</div>
 {{#Reading}}<div class="reading">/{{Reading}}/</div>{{/Reading}}
+<hr id="answer">
 <div class="translations">{{Translations}}</div>
-{{#Gender}}<div class="grammar">{{Gender}} · {{Plural}}</div>{{/Gender}}
+{{#Plural}}<div class="grammar">plural: {{Plural}}</div>{{/Plural}}
 {{#VerbForms}}<div class="grammar">{{VerbForms}}</div>{{/VerbForms}}
 {{#Image}}<div>{{Image}}</div>{{/Image}}
 {{#Examples}}<div class="examples">{{Examples}}</div>{{/Examples}}
@@ -81,7 +85,8 @@ _RECOGNITION_BACK = """
 """
 
 # Production: see the meaning, produce the foreign word. Harder, and the direction
-# that actually builds active vocabulary.
+# that actually builds active vocabulary -- so the answer includes the article,
+# because producing "Haus" without "das" is only half the word.
 _PRODUCTION_FRONT = """
 <div class="translations">{{Translations}}</div>
 """
@@ -89,9 +94,9 @@ _PRODUCTION_FRONT = """
 _PRODUCTION_BACK = """
 {{FrontSide}}
 <hr id="answer">
-<div class="word">{{Word}}</div>
+<div class="word">{{Gender}} {{Word}}</div>
 {{#Reading}}<div class="reading">/{{Reading}}/</div>{{/Reading}}
-{{#Gender}}<div class="grammar">{{Gender}} · {{Plural}}</div>{{/Gender}}
+{{#Plural}}<div class="grammar">plural: {{Plural}}</div>{{/Plural}}
 {{#VerbForms}}<div class="grammar">{{VerbForms}}</div>{{/VerbForms}}
 {{#Examples}}<div class="examples">{{Examples}}</div>{{/Examples}}
 {{#Audio}}<div>{{Audio}}</div>{{/Audio}}
@@ -141,9 +146,11 @@ def build_note(
         guid=genanki.guid_for(entry.word, source, target),
         tags=[t.replace(" ", "_") for t in entry.tags],
         fields=[
-            entry.article_word(),
+            # Bare, not article_word(): the gender is revealed by the template on
+            # the answer side, never on the prompt.
+            entry.word,
             entry.ipa,
-            "; ".join(entry.translations),
+            "; ".join(entry.short_translations()),
             _format_examples(entry),
             entry.gender,
             entry.plural,

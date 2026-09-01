@@ -41,3 +41,32 @@ def test_primary_sense_falls_back_to_the_word():
 def test_primary_sense_falls_back_when_a_gloss_is_all_parenthetical():
     entry = WordEntry(word="Haus", translations=["(obsolete)"])
     assert entry.primary_sense() == "Haus"
+
+
+def test_short_translations_keeps_two_distinct_senses():
+    entry = WordEntry(word="Haus", translations=["house, building", "home (in phrases)"])
+    assert entry.short_translations() == ["house", "home"]
+
+
+def test_short_translations_respects_the_limit():
+    entry = WordEntry(word="x", translations=["one", "two", "three"])
+    assert entry.short_translations(limit=2) == ["one", "two"]
+
+
+def test_short_translations_drops_duplicates_after_shortening():
+    # 'to run (fast)' and 'to run, to sprint' both reduce to 'to run'.
+    entry = WordEntry(word="laufen", translations=["to run (fast)", "to run, to sprint"])
+    assert entry.short_translations() == ["to run"]
+
+
+def test_short_translations_strips_a_leading_article():
+    assert WordEntry(word="Schlüssel", translations=["a key"]).short_translations() == ["key"]
+
+
+def test_short_translations_keeps_infinitive_markers():
+    # 'to' is the citation form for an English verb gloss, not noise.
+    assert WordEntry(word="laufen", translations=["to run"]).short_translations() == ["to run"]
+
+
+def test_short_translations_of_nothing_is_empty():
+    assert WordEntry(word="Haus").short_translations() == []

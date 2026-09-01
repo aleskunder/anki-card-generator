@@ -273,6 +273,27 @@ def test_wiktionary_prefers_a_record_that_actually_defines_the_word():
     assert entry.translations[0].startswith("strenuous")
 
 
+def test_wiktionary_skips_abbreviation_pointer_senses():
+    # "Short for certain compounds, such as Schraubenschlüssel" is tagged alt-of
+    # and abbreviation; it is not an answer anyone can give.
+    record = {
+        "word": "Schlüssel",
+        "pos": "noun",
+        "head_templates": [{"expansion": "Schlüssel m"}],
+        "senses": [
+            {"glosses": ["a key"], "tags": ["masculine", "strong"]},
+            {
+                "glosses": ["Short for certain compounds, such as Schraubenschlüssel."],
+                "tags": ["abbreviation", "alt-of", "masculine"],
+            },
+        ],
+    }
+    session = FakeSession(FakeResponse(200, records=[record]))
+    entry = WiktionaryProvider(session=session).enrich("Schlüssel", "de", "en")
+    assert entry.translations == ["a key"]
+    assert entry.short_translations() == ["key"]
+
+
 def test_wiktionary_skips_form_of_senses_within_a_record():
     record = {
         "word": "x",

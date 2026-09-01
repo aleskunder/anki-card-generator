@@ -16,6 +16,7 @@ from anki_card_generator.deck import (
     deck_id_for,
     write_apkg,
 )
+from anki_card_generator.models import WordEntry
 
 
 def test_writes_an_importable_package(tmp_path, haus, laufen):
@@ -59,7 +60,8 @@ def test_note_fields_line_up_with_the_model(haus):
     note = build_note(haus, model, "de", "en")
     assert len(note.fields) == len(FIELD_NAMES)
     fields = dict(zip(FIELD_NAMES, note.fields, strict=True))
-    assert fields["Word"] == "das Haus"
+    assert fields["Word"] == "Haus"
+    # Two distinct one-word senses both survive; the limit is senses, not words.
     assert fields["Translations"] == "house; building"
     assert fields["Plural"] == "die Häuser"
     assert "Das Haus ist groß." in fields["Examples"]
@@ -135,3 +137,62 @@ def test_packaged_media_matches_every_reference(tmp_path, haus, laufen):
         referenced.update(re.findall(r"\[sound:([^\]]+)\]", flds))
         referenced.update(re.findall(r'src="([^"]+)"', flds))
     assert referenced == packaged
+
+
+# --- what the front may and may not give away ---------------------------------
+
+def _fields(entry):
+    return dict(zip(FIELD_NAMES, build_note(entry, build_model(), "de", "en").fields, strict=True))
+
+
+def test_the_word_field_carries_no_article(haus):
+    # Showing "das Haus" as the prompt hands over the gender before it has been
+    # recalled, which is the harder half of learning a German noun.
+    assert _fields(haus)["Word"] == "Haus"
+    assert "das" not in _fields(haus)["Word"]
+
+
+def test_gender_is_stored_separately_so_the_template_can_delay_it(haus):
+    assert _fields(haus)["Gender"] == "das"
+
+
+def test_recognition_front_shows_only_the_bare_word():
+    front = next(t for t in build_model().templates if t["name"] == "Recognition")["qfmt"]
+    assert "{{Word}}" in front
+    assert "{{Gender}}" not in front
+    assert "{{Translations}}" not in front
+
+
+def test_recognition_back_reveals_the_gender():
+    back = next(t for t in build_model().templates if t["name"] == "Recognition")["afmt"]
+    assert "{{Gender}}" in back and "{{Word}}" in back
+
+
+def test_production_front_shows_only_the_meaning():
+    front = next(t for t in build_model().templates if t["name"] == "Production")["qfmt"]
+    assert "{{Translations}}" in front
+    # The German word and its gender are what you are meant to produce.
+    assert "{{Word}}" not in front
+    assert "{{Gender}}" not in front
+
+
+def test_production_back_includes_the_article():
+    back = next(t for t in build_model().templates if t["name"] == "Production")["afmt"]
+    assert "{{Gender}} {{Word}}" in back
+
+
+def test_translations_are_card_sized(laufen):
+    laufen.translations = [
+        "to walk; to jog; to run (to move on foot; either at a normal or an increased speed)",
+        "to flow; to leak; to run",
+    ]
+    assert _fields(laufen)["Translations"] == "to walk; to flow"
+
+
+def test_a_verbose_single_gloss_is_cut_down():
+    entry = WordEntry(
+        word="Woche",
+        gender="die",
+        translations=["week (period of seven days counting from Monday to Sunday)"],
+    )
+    assert _fields(entry)["Translations"] == "week"

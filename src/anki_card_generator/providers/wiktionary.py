@@ -53,13 +53,15 @@ _VERB_FORMS = {
 }
 
 
-def _is_form_of(sense: dict) -> bool:
-    """Whether a sense merely points at another word rather than defining one.
+# Senses that point at another word instead of defining this one. On a flashcard
+# "present participle of anstrengen" or "Short for certain compounds, such as
+# Schraubenschlüssel" is true but unusable as an answer.
+_POINTER_TAGS = frozenset({"form-of", "alt-of", "abbreviation"})
 
-    Wiktextract files inflections as senses, glossed "present participle of X".
-    That is true but useless on a flashcard.
-    """
-    return "form-of" in (sense.get("tags") or []) or bool(sense.get("form_of"))
+
+def _is_form_of(sense: dict) -> bool:
+    """Whether a sense merely points at another word rather than defining one."""
+    return bool(_POINTER_TAGS & set(sense.get("tags") or [])) or bool(sense.get("form_of"))
 
 
 def _has_real_sense(record: dict) -> bool:
