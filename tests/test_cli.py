@@ -77,3 +77,17 @@ def test_output_name_defaults_from_the_deck_name(words, tmp_path, monkeypatch):
         "--provider", "stub", "--no-audio", "--no-images", "--format", "tsv",
     ]) == 0
     assert (tmp_path / "Vocabulary_DE-EN.tsv").is_file()
+
+
+def test_fallback_is_skipped_when_the_main_provider_answers(words, tmp_path, capsys):
+    # stub always answers, so a fallback must never be reached -- with a paid
+    # fallback, reaching it would mean spending money for nothing.
+    code, _ = run(words, tmp_path, "--format", "tsv", "--fallback", "wiktionary")
+    assert code == 0
+    assert "Fell back" not in capsys.readouterr().err
+
+
+def test_fallback_equal_to_the_provider_is_ignored(words, tmp_path):
+    code, out = run(words, tmp_path, "--format", "tsv", "--fallback", "stub")
+    assert code == 0
+    assert len(out.read_text(encoding="utf-8").splitlines()) == 2

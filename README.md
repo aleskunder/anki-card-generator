@@ -37,6 +37,7 @@ That writes `Vocabulary_DE-EN.apkg`, which you import into Anki with
 | `--input` | required | Word list, one headword per line; `#` comments and blank lines are ignored |
 | `--source` / `--target` | required | Language codes, e.g. `de` and `en` |
 | `--provider` | `llm` | Where word data comes from — see below |
+| `--fallback` | — | Provider to try for words the main one misses |
 | `--format` | `apkg` | `apkg` for a real deck, `tsv` for a table to import by hand |
 | `--examples N` | `0` | Example sentences per word |
 | `--deck` | `Vocabulary (DE-EN)` | Anki deck name |
@@ -44,6 +45,7 @@ That writes `Vocabulary_DE-EN.apkg`, which you import into Anki with
 | `--model` | `claude-opus-5` | LLM model id, for `--provider llm` |
 | `--effort` | `medium` | LLM reasoning effort — the main cost/quality dial |
 | `--tag` | — | Extra Anki tag, repeatable (`--tag a1 --tag chapter3`) |
+| `--voice` | — | piper voice model (`.onnx`); falls back to espeak-ng when unset |
 | `--no-audio` / `--no-images` | off | Skip media |
 | `--no-cache` | off | Ignore cached provider results |
 
@@ -59,6 +61,26 @@ That writes `Vocabulary_DE-EN.apkg`, which you import into Anki with
 
 Only the LLM provider can fill a card on its own. The others leave what they do not
 know empty rather than guessing, so a card is always a truthful view of what was found.
+
+### Running it for free
+
+`--provider wiktionary` costs nothing and needs no account. Combined with espeak-ng
+for audio and Openverse for images, the whole pipeline is free:
+
+```bash
+ankigen --input data/words.txt --source de --target en \
+        --provider wiktionary --examples 1
+```
+
+Wiktionary does miss words, though — reflexive phrases like *sich erinnern* are
+filed under the bare verb. `--fallback` pays for only those:
+
+```bash
+ankigen --input words.txt --source de --target en \
+        --provider wiktionary --fallback llm
+```
+
+The run reports which words fell through, so you can see exactly what was billed.
 
 ## Regenerating a deck
 

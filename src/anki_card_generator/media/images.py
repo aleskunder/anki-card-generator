@@ -24,14 +24,15 @@ _session.headers.setdefault(
 )
 
 
-def fetch_image(word: str, translations: list[str] | None = None) -> str:
+def fetch_image(word: str, query: str | None = None) -> str:
     """Download one image for *word*, returning its path or ``""`` if none fits.
 
-    The English translation is used as the search term when available: Openverse's
-    index is overwhelmingly English-tagged, so searching for "house" finds far more
-    than searching for "Haus".
+    *query* should be a short English term: Openverse's index is overwhelmingly
+    English-tagged, so "house" finds far more than "Haus" -- and a whole dictionary
+    gloss ("week (period of seven days counting from Monday...)") finds nothing at
+    all, which is what :meth:`WordEntry.primary_sense` exists to avoid.
     """
-    query = (translations or [word])[0] if translations else word
+    query = query or word
     key = hashlib.sha256(query.encode("utf-8")).hexdigest()[:16]
 
     for existing in media_dir("images").glob(f"{key}.*"):

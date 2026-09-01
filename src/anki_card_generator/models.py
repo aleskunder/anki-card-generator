@@ -8,6 +8,8 @@ empty rather than faked, so a card is always a truthful view of what was found.
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field
 
 
@@ -63,3 +65,16 @@ class WordEntry(BaseModel):
     def article_word(self) -> str:
         """The headword as a learner should memorise it: 'das Haus' rather than 'Haus'."""
         return f"{self.gender} {self.word}".strip() if self.gender else self.word
+
+    def primary_sense(self) -> str:
+        """A short term naming the main sense, for searching and summarising.
+
+        Dictionary glosses run long -- 'week (period of seven days counting from
+        Monday to Sunday...)' -- which is useless as an image-search query, so
+        keep only the leading term.
+        """
+        if not self.translations:
+            return self.word
+        without_parens = re.sub(r"\([^)]*\)", " ", self.translations[0])
+        head = re.split(r"[;,]", without_parens)[0]
+        return " ".join(head.split()) or self.word

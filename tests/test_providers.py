@@ -240,6 +240,60 @@ def test_wiktionary_wraps_network_failures():
         WiktionaryProvider(session=Broken(FakeResponse())).enrich("Haus", "de", "en")
 
 
+ANSTRENGEND_VERB_FORM = {
+    "word": "anstrengend",
+    "pos": "verb",
+    "senses": [
+        {
+            "glosses": ["present participle of anstrengen"],
+            "tags": ["form-of", "participle", "present"],
+            "form_of": [{"word": "anstrengen"}],
+        }
+    ],
+}
+
+ANSTRENGEND_ADJ = {
+    "word": "anstrengend",
+    "pos": "adj",
+    "senses": [
+        {"glosses": ["strenuous (requiring great exertion)"]},
+        {"glosses": ["exhausting"]},
+    ],
+}
+
+
+def test_wiktionary_prefers_a_record_that_actually_defines_the_word():
+    # 'verb' outranks 'adj' by part of speech, but the verb record only says
+    # "present participle of anstrengen", which is useless on a card.
+    session = FakeSession(
+        FakeResponse(200, records=[ANSTRENGEND_VERB_FORM, ANSTRENGEND_ADJ])
+    )
+    entry = WiktionaryProvider(session=session).enrich("anstrengend", "de", "en")
+    assert entry.pos == "adj"
+    assert entry.translations[0].startswith("strenuous")
+
+
+def test_wiktionary_skips_form_of_senses_within_a_record():
+    record = {
+        "word": "x",
+        "pos": "noun",
+        "senses": [
+            {"glosses": ["plural of y"], "tags": ["form-of"]},
+            {"glosses": ["a real definition"]},
+        ],
+    }
+    session = FakeSession(FakeResponse(200, records=[record]))
+    entry = WiktionaryProvider(session=session).enrich("x", "de", "en")
+    assert entry.translations == ["a real definition"]
+
+
+def test_wiktionary_keeps_form_of_glosses_when_there_is_nothing_else():
+    # Better a pointer to the base form than no card at all.
+    session = FakeSession(FakeResponse(200, records=[ANSTRENGEND_VERB_FORM]))
+    entry = WiktionaryProvider(session=session).enrich("anstrengend", "de", "en")
+    assert entry.translations == ["present participle of anstrengen"]
+
+
 # --- deepl ------------------------------------------------------------------
 
 def test_deepl_requires_a_key():

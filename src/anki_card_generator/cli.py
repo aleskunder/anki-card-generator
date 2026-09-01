@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Example sentences per word (default: 0)",
     )
+    parser.add_argument(
+        "--fallback",
+        choices=PROVIDER_NAMES,
+        help=(
+            "Provider to try for words the main provider cannot describe. "
+            "'--provider wiktionary --fallback llm' pays only for the misses."
+        ),
+    )
     parser.add_argument("--model", help="LLM model id, for --provider llm")
     parser.add_argument(
         "--effort",
@@ -53,6 +61,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="LLM reasoning effort, the main cost/quality dial (default: medium)",
     )
     parser.add_argument("--no-audio", action="store_true", help="Skip pronunciation audio")
+    parser.add_argument(
+        "--voice",
+        help="piper voice model (.onnx); falls back to espeak-ng when unset",
+    )
     parser.add_argument("--no-images", action="store_true", help="Skip images")
     parser.add_argument(
         "--no-cache", action="store_true", help="Ignore cached provider results"
@@ -80,6 +92,19 @@ def main(argv: list[str] | None = None) -> int:
         provider_kwargs["use_cache"] = not args.no_cache
 
     provider = get_provider(args.provider, **provider_kwargs)
+    chain = None
+    if args.fallback and args.fallback != args.provider:
+        from .providers.chain import ChainProvider
+
+        fallback_kwargs = dict(provider_kwargs)
+        if args.fallback == "llm":
+            fallback_kwargs.setdefault("effort", args.effort)
+            fallback_kwargs.setdefault("use_cache", not args.no_cache)
+        chain = ChainProvider(
+            [provider, get_provider(args.fallback, **fallback_kwargs)],
+            [args.provider, args.fallback],
+        )
+        provider = chain
 
     entries: list[WordEntry] = []
     failed: list[str] = []
@@ -100,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if not args.no_audio:
-        _add_audio(entries, args.source)
+        _add_audio(entries, args.source, args.voice)
     if not args.no_images:
         _add_images(entries)
 
@@ -112,18 +137,25 @@ def main(argv: list[str] | None = None) -> int:
         write_apkg(entries, output, deck_name, args.source, args.target)
 
     print(f"\nWrote {len(entries)} cards to {output}", file=sys.stderr)
+    if chain is not None and chain.fallback_words:
+        # Worth surfacing: with a paid fallback this is the line that cost money.
+        print(
+            f"Fell back to {args.fallback} for {len(chain.fallback_words)}: "
+            f"{', '.join(chain.fallback_words)}",
+            file=sys.stderr,
+        )
     if failed:
         print(f"Skipped {len(failed)}: {', '.join(failed)}", file=sys.stderr)
     return 0
 
 
-def _add_audio(entries: list[WordEntry], lang: str) -> None:
+def _add_audio(entries: list[WordEntry], lang: str, voice: str | None = None) -> None:
     """Synthesise pronunciation, degrading to no audio if no engine is installed."""
     from .media.tts import TTSUnavailable, synthesize
 
     for entry in entries:
         try:
-            entry.audio_path = synthesize(entry.word, lang)
+            entry.audio_path = synthesize(entry.word, lang, voice)
         except TTSUnavailable as exc:
             print(f"Audio disabled: {exc}", file=sys.stderr)
             return
@@ -139,7 +171,7 @@ def _add_images(entries: list[WordEntry]) -> None:
         if entry.pos and entry.pos.lower() != "noun":
             continue
         try:
-            entry.image_path = fetch_image(entry.word, entry.translations)
+            entry.image_path = fetch_image(entry.word, entry.primary_sense())
         except Exception as exc:
             print(f"  ! image for {entry.word}: {exc}", file=sys.stderr)
 

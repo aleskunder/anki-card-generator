@@ -53,6 +53,22 @@ _VERB_FORMS = {
 }
 
 
+def _is_form_of(sense: dict) -> bool:
+    """Whether a sense merely points at another word rather than defining one.
+
+    Wiktextract files inflections as senses, glossed "present participle of X".
+    That is true but useless on a flashcard.
+    """
+    return "form-of" in (sense.get("tags") or []) or bool(sense.get("form_of"))
+
+
+def _has_real_sense(record: dict) -> bool:
+    return any(
+        not _is_form_of(sense) and sense.get("glosses")
+        for sense in record.get("senses", [])
+    )
+
+
 class WiktionaryProvider:
     """Structured dictionary data: authoritative grammar, patchier coverage."""
 
@@ -111,9 +127,16 @@ class WiktionaryProvider:
         if not records:
             raise ProviderError(f"No usable Wiktionary data for {word!r}.")
 
-        def rank(record: dict) -> int:
+        def rank(record: dict) -> tuple[int, int]:
             pos = record.get("pos", "")
-            return _POS_PRIORITY.index(pos) if pos in _POS_PRIORITY else len(_POS_PRIORITY)
+            pos_rank = (
+                _POS_PRIORITY.index(pos) if pos in _POS_PRIORITY else len(_POS_PRIORITY)
+            )
+            # A record whose every sense is "present participle of X" defines
+            # nothing. 'anstrengend' has one of those under `verb` and the real
+            # adjective senses under `adj`, so definitions must outrank part of
+            # speech here.
+            return (0 if _has_real_sense(record) else 1, pos_rank)
 
         return min(records, key=rank)
 
@@ -140,9 +163,8 @@ class WiktionaryProvider:
         elif entry.pos == "verb":
             entry.verb_forms = self._verb_forms(record, expansion)
 
-        for sense in record.get("senses", []):
-            # Wiktextract files inflected forms as senses too; those carry no gloss
-            # worth putting on a card.
+        senses = [s for s in record.get("senses", []) if not _is_form_of(s)]
+        for sense in senses or record.get("senses", []):
             for gloss in sense.get("glosses", []):
                 if gloss not in entry.translations:
                     entry.translations.append(gloss)
