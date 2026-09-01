@@ -17,8 +17,17 @@ micromamba create -n anki_repo -c conda-forge python=3.12 -y
 micromamba run -n anki_repo pip install -e ".[dev]"
 ```
 
-Optional, for pronunciation audio: `sudo apt install espeak-ng` (or install
-[piper](https://github.com/rhasspy/piper) for markedly better voices).
+For pronunciation audio:
+
+```bash
+sudo apt install espeak-ng
+```
+
+espeak-ng needs no voice model and is used automatically once installed. For
+better voices, install [piper](https://github.com/rhasspy/piper) *and* point
+`--voice` (or `ANKIGEN_PIPER_VOICE`) at a `.onnx` model — piper is only preferred
+when a model is actually configured, so it can never shadow a working espeak-ng.
+Without either, the run warns once and continues without audio.
 
 ## Use
 
