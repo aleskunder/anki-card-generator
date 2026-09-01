@@ -1,3 +1,26 @@
+# A small starter list. Blank lines and #-comments are ignored.
+
+# Nouns
 Haus
+Fenster
+Schlüssel
+Woche
+Ratschlag
+Umgebung
+
+# Verbs
 laufen
+ankommen
+verstehen
+sich erinnern
+teilnehmen
+
+# Adjectives
 schön
+gemütlich
+zuverlässig
+anstrengend
+
+# Adverbs / function words
+allerdings
+trotzdem

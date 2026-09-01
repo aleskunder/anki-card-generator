@@ -46,16 +46,9 @@ tests/*.py[cod]
 *.swo
 *~
 
-# Generated Anki files (if applicable)
-*.apkg
-
 # Dependency folders
 node_modules/
 
-# Compiled Cython files
-*.c
-*.cpp
-*.o
-*.a
-*.so
-
+# Generated decks and exports
+*.apkg
+*.tsv

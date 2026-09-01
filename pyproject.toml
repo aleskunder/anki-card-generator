@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "anki-card-generator"
+version = "0.2.0"
+description = "Generate Anki decks from word lists, with translations, grammar metadata, example sentences, audio, and images."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Alexander Kuznetsov", email = "aleskunder@gmail.com" }]
+keywords = ["anki", "translation", "language", "learning", "flashcards"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Education",
+]
+dependencies = [
+    "genanki>=0.13",
+    "anthropic>=0.40",
+    "pydantic>=2.0",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "platformdirs>=4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/aleskunder/anki-card-generator"
+
+[project.scripts]
+ankigen = "anki_card_generator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anki_card_generator"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
