@@ -1,5 +1,5 @@
 import requests
-from googletrans import Translator
+from googletrans import Translator, LANGUAGES
 from bs4 import BeautifulSoup
 
 
@@ -23,19 +23,29 @@ class GoogleTranslator(TranslatorBase):
 
 class ReversoTranslator(TranslatorBase):
     def get_translations(self):
-        url = f"https://api.reverso.net/translate/v1/translation"
-        headers = {"Content-Type": "application/json"}
-        params = {"from": self.source_lang, "to": self.target_lang, "text": self.word}
-        response = requests.post(url, json=params, headers=headers)
+        # url = f"https://api.reverso.net/translate/
+        url = f"https://context.reverso.net/translation/{LANGUAGES[self.source_lang]}-{LANGUAGES[self.target_lang]}/{self.word}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Referer": "https://context.reverso.net/",
+        }
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            result = response.json()
-            translations = result.get("translations", [])
-            return [translation['text'] for translation in translations[:self.max_translations]]
+            print("Response content:", response.text)  # Debugging: Print the raw response
+            try:
+                result = response.json()  # Attempt to parse JSON
+                translations = result.get("translations", [])
+                return [translation['text'] for translation in translations[:self.max_translations]]
+            except requests.exceptions.JSONDecodeError:
+                print("Response is not JSON. Falling back to HTML parsing.")
+                soup = BeautifulSoup(response.text, 'html.parser')
+                translations = [span.text for span in soup.find_all("span", class_="translation")]
+                return translations[:self.max_translations] if translations else ["No translations found"]
         else:
-            print(f"Error: {response.status_code} - Unable to fetch from Reverso. Switching to GT")
-            translator = GoogleTranslator()
-            translations = translator.translate(self.word, src=self.source_lang, dest=self.target_lang)
-            return [translations.text]
+            print(f"Error: {response.status_code} - Unable to fetch from Reverso.")
+            translator = TranslationService.get_translator('google', self.word, self.source_lang, self.target_lang)
+            translations = translator.get_translations()
+            return translations
 
 class DeepLTranslator(TranslatorBase):
     def get_translations(self):
@@ -104,6 +114,6 @@ if __name__ == "__main__":
     word = "turtle"
     source_lang = "en"
     target_lang = "de"
-    service = "google"  # Change this to test different services
+    service = "reverso"  # Change this to test different services
     translator = TranslationService.get_translator(service, word, source_lang, target_lang)
     print(f"Translations from {service.capitalize()}: {translator.get_translations()}")
